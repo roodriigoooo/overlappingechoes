@@ -100,6 +100,11 @@ def server_error_response(message: str = 'Internal server error') -> Dict:
     return create_response(500, {'error': message})
 
 
+def error_response(status_code: int, message: str) -> Dict:
+    """Create an error response with an arbitrary status code."""
+    return create_response(status_code, {'error': message})
+
+
 def websocket_response(status_code: int, body: Optional[Dict] = None) -> Dict:
     """
     Create a WebSocket API response.

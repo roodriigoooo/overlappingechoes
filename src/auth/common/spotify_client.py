@@ -45,13 +45,15 @@ class SpotifyClient:
             Authorization URL
         """
         scopes = [
-            'user-read-currently-playing',
-            'user-read-playback-state',
+            'user-top-read',
+            'user-follow-read',
+            'user-library-read',
             'user-read-recently-played',
             'user-read-email',
             'user-read-private'
         ]
         
+        import urllib.parse
         params = {
             'client_id': self.client_id,
             'response_type': 'code',
@@ -60,8 +62,8 @@ class SpotifyClient:
             'scope': ' '.join(scopes),
             'show_dialog': 'false'
         }
-        
-        query_string = '&'.join([f'{k}={v}' for k, v in params.items()])
+
+        query_string = urllib.parse.urlencode(params)
         return f'{SPOTIFY_ACCOUNTS_BASE_URL}/authorize?{query_string}'
     
     def exchange_code_for_token(self, code: str, redirect_uri: str) -> Dict:
@@ -180,7 +182,79 @@ class SpotifyClient:
             SpotifyAPIError: If request fails
         """
         return self._make_request('GET', f'/me/player/recently-played?limit={limit}')
-    
+
+    def search(self, query: str, type: str = 'track', limit: int = 10) -> Dict:
+        """
+        Search for items on Spotify.
+        
+        Args:
+            query: Search query
+            type: Item type (track, artist, album, playlist)
+            limit: Number of results
+            
+        Returns:
+            Search results
+        """
+        # URL encode query
+        import urllib.parse
+        encoded_query = urllib.parse.quote(query)
+        return self._make_request('GET', f'/search?q={encoded_query}&type={type}&limit={limit}')
+
+    def get_top_tracks(self, time_range: str = 'medium_term', limit: int = 50) -> Dict:
+        """
+        Get user's top tracks.
+        
+        Args:
+            time_range: Over what time frame (short_term, medium_term, long_term)
+            limit: Number of results
+            
+        Returns:
+            Top tracks
+        """
+        return self._make_request('GET', f'/me/top/tracks?time_range={time_range}&limit={limit}')
+
+    def get_top_artists(self, time_range: str = 'medium_term', limit: int = 50) -> Dict:
+        """
+        Get user's top artists.
+
+        Args:
+            time_range: Over what time frame (short_term, medium_term, long_term)
+            limit: Number of results
+
+        Returns:
+            Top artists
+        """
+        return self._make_request('GET', f'/me/top/artists?time_range={time_range}&limit={limit}')
+
+    def get_followed_artists(self) -> list:
+        """
+        Get all artists the user follows (cursor-paginated).
+
+        Returns:
+            List of artist objects
+        """
+        import urllib.parse
+        artists = []
+        after = None
+
+        while True:
+            endpoint = '/me/following?type=artist&limit=50'
+            if after:
+                encoded = urllib.parse.quote(after, safe='')
+                endpoint += f'&after={encoded}'
+
+            response = self._make_request('GET', endpoint)
+            page = response.get('artists', {})
+            items = page.get('items', [])
+            artists.extend(items)
+
+            cursor = page.get('cursors', {}).get('after')
+            if not cursor:
+                break
+            after = cursor
+
+        return artists
+
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
         """
         Make an authenticated request to Spotify API.

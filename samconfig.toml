@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "spotify-graph"
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+resolve_s3 = true
+s3_prefix = "spotify-graph"
+parameter_overrides = "SpotifyClientId=\"094b9c63a39a4cf199a67c1c0ddf790b\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"
