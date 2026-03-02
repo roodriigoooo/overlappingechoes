@@ -4,6 +4,7 @@ import type { User, Profile, GraphData, Friend, FriendRequests } from './types'
 import Graph from './components/Graph'
 import ProfilePanel from './components/ProfilePanel'
 import FriendsPanel from './components/FriendsPanel'
+import LoadingScreen from './components/LoadingScreen'
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('spotify_token'))
@@ -33,17 +34,17 @@ export default function App() {
   // Load all data once on auth
   useEffect(() => {
     if (!token) return
-    api.getMe().then(setUser).catch(() => {})
-    api.getProfile().then(setProfile).catch(() => {})
-    api.getGraph('taste').then(setGraphData).catch(() => {})
-    api.getFriends().then(setFriends).catch(() => {})
-    api.getFriendRequests().then(setFriendRequests).catch(() => {})
+    api.getMe().then(setUser).catch(() => { })
+    api.getProfile().then(setProfile).catch(() => { })
+    api.getGraph('taste').then(setGraphData).catch(() => { })
+    api.getFriends().then(setFriends).catch(() => { })
+    api.getFriendRequests().then(setFriendRequests).catch(() => { })
   }, [token])
 
   // Reload graph when mode changes
   useEffect(() => {
     if (!token) return
-    api.getGraph(mode).then(setGraphData).catch(() => {})
+    api.getGraph(mode).then(setGraphData).catch(() => { })
   }, [mode, token])
 
   // Poll profile while lyric computation is pending
@@ -53,9 +54,9 @@ export default function App() {
       api.getProfile().then(p => {
         setProfile(p)
         if (p.lyricStatus === 'ready') {
-          api.getGraph(mode).then(setGraphData).catch(() => {})
+          api.getGraph(mode).then(setGraphData).catch(() => { })
         }
-      }).catch(() => {})
+      }).catch(() => { })
     }, 5000)
     return () => { if (pollRef.current) clearTimeout(pollRef.current) }
   }, [profile?.lyricStatus, mode])
@@ -85,15 +86,15 @@ export default function App() {
     try {
       const p = await api.refreshProfile()
       setProfile(p)
-      api.getGraph(mode).then(setGraphData).catch(() => {})
-    } catch {}
+      api.getGraph(mode).then(setGraphData).catch(() => { })
+    } catch { }
     setRefreshing(false)
   }
 
   const handleFriendUpdate = () => {
-    api.getFriends().then(setFriends).catch(() => {})
-    api.getFriendRequests().then(setFriendRequests).catch(() => {})
-    api.getGraph(mode).then(setGraphData).catch(() => {})
+    api.getFriends().then(setFriends).catch(() => { })
+    api.getFriendRequests().then(setFriendRequests).catch(() => { })
+    api.getGraph(mode).then(setGraphData).catch(() => { })
   }
 
   if (!token) {
@@ -112,6 +113,10 @@ export default function App() {
         </div>
       </div>
     )
+  }
+
+  if (token && (!user || !graphData)) {
+    return <LoadingScreen text="Loading taste graph..." />
   }
 
   return (
@@ -144,6 +149,9 @@ export default function App() {
       </header>
 
       <div className="canvas">
+        {token && mode === 'lyric' && profile?.lyricStatus === 'pending' && (
+          <LoadingScreen text="Computing Lyrics..." />
+        )}
         <Graph data={graphData} mode={mode} />
 
         {/* Left panel toggle */}

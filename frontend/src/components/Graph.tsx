@@ -46,6 +46,27 @@ export default function Graph({ data, mode }: Props) {
 
     svg.call(zoom)
 
+    // Calculate dynamic node opacity based on similarity to current user
+    const currentUser = data.nodes.find(n => n.isCurrentUser)
+    const currentUserId = currentUser?.userId
+
+    const nodeOpacityMap = new Map<string, number>()
+    if (currentUserId) {
+      data.edges.forEach(e => {
+        if (e.source === currentUserId) {
+          nodeOpacityMap.set(e.target as string, Math.max(nodeOpacityMap.get(e.target as string) || 0, e.similarity))
+        } else if (e.target === currentUserId) {
+          nodeOpacityMap.set(e.source as string, Math.max(nodeOpacityMap.get(e.source as string) || 0, e.similarity))
+        }
+      })
+    }
+
+    const getNodeOpacity = (userId: string) => {
+      // Base opacity if no direct edge to current user
+      const sim = nodeOpacityMap.get(userId) || 0
+      return 0.15 + (sim * 0.85) // Range from 0.15 to 1.0
+    }
+
     // Build simulation data
     const nodes: SimNode[] = data.nodes.map(n => ({ ...n }))
     const nodeById = new Map(nodes.map(n => [n.userId, n]))
@@ -124,26 +145,26 @@ export default function Graph({ data, mode }: Props) {
       .append('circle')
       .attr('r', d => (d.isCurrentUser ? 30 : 24) + 6)
       .attr('fill', 'none')
-      .attr('stroke', '#34d399')
+      .attr('stroke', '#00FF41')
       .attr('stroke-width', 1)
-      .attr('stroke-opacity', 0.35)
+      .attr('stroke-opacity', 0.5)
 
     // Main circle
     nodeSel.append('circle')
       .attr('r', d => d.isCurrentUser ? 30 : 24)
-      .attr('fill', d => d.isCurrentUser ? 'rgba(124,106,247,0.14)' : 'rgba(18,18,36,0.9)')
-      .attr('stroke', d => d.isCurrentUser ? '#7c6af7' : '#252545')
-      .attr('stroke-width', d => d.isCurrentUser ? 2 : 1.5)
+      .attr('fill', d => d.isCurrentUser ? '#00FF41' : `rgba(0, 255, 65, ${getNodeOpacity(d.userId)})`)
+      .attr('stroke', '#00FF41')
+      .attr('stroke-width', d => d.isCurrentUser ? 2 : 1)
 
     // Initials label
     nodeSel.append('text')
       .text(d => initials(d.displayName))
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
-      .attr('fill', d => d.isCurrentUser ? '#9580ff' : '#6a6a90')
+      .attr('fill', d => d.isCurrentUser ? '#000000' : '#00FF41')
       .attr('font-size', d => d.isCurrentUser ? '13' : '11')
       .attr('font-weight', '600')
-      .attr('font-family', 'Inter, system-ui, sans-serif')
+      .attr('font-family', 'Outfit, system-ui, sans-serif')
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
@@ -152,9 +173,9 @@ export default function Graph({ data, mode }: Props) {
       .text(d => d.displayName.split(' ')[0])
       .attr('text-anchor', 'middle')
       .attr('y', d => (d.isCurrentUser ? 30 : 24) + 14)
-      .attr('fill', '#35354a')
-      .attr('font-size', '10')
-      .attr('font-family', 'Inter, system-ui, sans-serif')
+      .attr('fill', '#00FF41')
+      .attr('font-size', '11')
+      .attr('font-family', 'Outfit, system-ui, sans-serif')
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
@@ -193,12 +214,12 @@ export default function Graph({ data, mode }: Props) {
           left: edgeLabel.x,
           top: edgeLabel.y - 36,
           transform: 'translateX(-50%)',
-          background: 'rgba(14,14,28,0.92)',
-          border: '1px solid #252545',
-          borderRadius: '8px',
+          background: 'rgba(10, 10, 10, 0.92)',
+          border: '1px solid #113311',
+          borderRadius: '0',
           padding: '4px 12px',
           fontSize: '12px',
-          color: '#ddddf0',
+          color: '#ddffdd',
           pointerEvents: 'none',
           backdropFilter: 'blur(8px)',
           whiteSpace: 'nowrap',
@@ -218,7 +239,7 @@ export default function Graph({ data, mode }: Props) {
             <div className="node-card-sub" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>{selectedNode.isCurrentUser ? 'You' : selectedNode.spotifyId}</span>
               {selectedNode.lyricStatus === 'ready' && (
-                <span style={{ color: '#34d399', fontSize: 11 }}>● lyric ready</span>
+                <span style={{ color: '#00FF41', fontSize: 11 }}>● lyric ready</span>
               )}
               {selectedNode.lyricStatus === 'pending' && (
                 <span style={{ color: '#fbbf24', fontSize: 11 }}>● computing…</span>
@@ -237,8 +258,9 @@ function initials(name: string): string {
 }
 
 function edgeColor(sim: number): string {
-  if (sim >= 0.75) return '#34d399'
-  if (sim >= 0.55) return '#7c6af7'
-  if (sim >= 0.35) return '#6b5db8'
-  return '#2e2e50'
+  if (sim >= 0.75) return '#00FF41'
+  if (sim >= 0.55) return '#00CC33'
+  if (sim >= 0.35) return '#009922'
+  return '#004411'
 }
+
