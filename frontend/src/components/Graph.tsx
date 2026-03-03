@@ -17,6 +17,9 @@ interface EdgeLabel {
   sim: number
 }
 
+// Node "radius" (half of square side)
+const nSize = (d: SimNode) => d.isCurrentUser ? 28 : 20
+
 export default function Graph({ data, mode }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
@@ -39,7 +42,7 @@ export default function Graph({ data, mode }: Props) {
     const g = svg.append('g')
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.2, 5])
+      .scaleExtent([0.15, 6])
       .on('zoom', (event) => {
         g.attr('transform', event.transform)
       })
@@ -62,9 +65,8 @@ export default function Graph({ data, mode }: Props) {
     }
 
     const getNodeOpacity = (userId: string) => {
-      // Base opacity if no direct edge to current user
       const sim = nodeOpacityMap.get(userId) || 0
-      return 0.15 + (sim * 0.85) // Range from 0.15 to 1.0
+      return 0.15 + (sim * 0.85)
     }
 
     // Build simulation data
@@ -84,10 +86,10 @@ export default function Graph({ data, mode }: Props) {
       .force('link', d3.forceLink<SimNode, SimLink>(links)
         .id(d => d.userId)
         .strength(d => 0.3 + d.similarity * 0.5)
-        .distance(d => 180 - d.similarity * 80))
-      .force('charge', d3.forceManyBody().strength(-400))
+        .distance(d => 190 - d.similarity * 80))
+      .force('charge', d3.forceManyBody().strength(-420))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<SimNode>(d => d.isCurrentUser ? 38 : 32))
+      .force('collision', d3.forceCollide<SimNode>(d => nSize(d) + 10))
 
     // Edges
     const edgeGroup = g.append('g').attr('class', 'edges')
@@ -96,12 +98,12 @@ export default function Graph({ data, mode }: Props) {
       .enter()
       .append('line')
       .attr('stroke', d => edgeColor(d.similarity))
-      .attr('stroke-width', d => 1 + d.similarity * 2.5)
-      .attr('stroke-opacity', d => 0.3 + d.similarity * 0.5)
-      .attr('stroke-linecap', 'round')
+      .attr('stroke-width', d => 1 + d.similarity * 2)
+      .attr('stroke-opacity', d => 0.25 + d.similarity * 0.5)
+      .attr('stroke-linecap', 'square')
       .style('cursor', 'pointer')
       .on('mouseenter', function (event: MouseEvent, d) {
-        d3.select(this).attr('stroke-opacity', 1).attr('stroke-width', d.similarity * 2.5 + 2.5)
+        d3.select(this).attr('stroke-opacity', 1).attr('stroke-width', d.similarity * 2 + 2.5)
         const rect = svgEl.getBoundingClientRect()
         setEdgeLabel({ x: event.clientX - rect.left, y: event.clientY - rect.top, sim: d.similarity })
       })
@@ -110,7 +112,7 @@ export default function Graph({ data, mode }: Props) {
         setEdgeLabel(prev => prev ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top } : null)
       })
       .on('mouseleave', function (_, d) {
-        d3.select(this).attr('stroke-opacity', 0.3 + d.similarity * 0.5).attr('stroke-width', 1 + d.similarity * 2.5)
+        d3.select(this).attr('stroke-opacity', 0.25 + d.similarity * 0.5).attr('stroke-width', 1 + d.similarity * 2)
         setEdgeLabel(null)
       })
 
@@ -140,21 +142,43 @@ export default function Graph({ data, mode }: Props) {
       )
       .on('click', (_, d) => setSelectedNode(d))
 
-    // Glow ring for lyric-ready nodes
+    // Outer glow ring for lyric-ready nodes
     nodeSel.filter(d => d.lyricStatus === 'ready')
-      .append('circle')
-      .attr('r', d => (d.isCurrentUser ? 30 : 24) + 6)
+      .append('rect')
+      .attr('x', d => -(nSize(d) + 7))
+      .attr('y', d => -(nSize(d) + 7))
+      .attr('width', d => (nSize(d) + 7) * 2)
+      .attr('height', d => (nSize(d) + 7) * 2)
       .attr('fill', 'none')
       .attr('stroke', '#00FF41')
       .attr('stroke-width', 1)
-      .attr('stroke-opacity', 0.5)
+      .attr('stroke-opacity', 0.35)
+      .attr('shape-rendering', 'crispEdges')
 
-    // Main circle
-    nodeSel.append('circle')
-      .attr('r', d => d.isCurrentUser ? 30 : 24)
-      .attr('fill', d => d.isCurrentUser ? '#00FF41' : `rgba(0, 255, 65, ${getNodeOpacity(d.userId)})`)
+    // Main square
+    nodeSel.append('rect')
+      .attr('x', d => -nSize(d))
+      .attr('y', d => -nSize(d))
+      .attr('width', d => nSize(d) * 2)
+      .attr('height', d => nSize(d) * 2)
+      .attr('fill', d => d.isCurrentUser
+        ? '#00FF41'
+        : `rgba(0, 255, 65, ${getNodeOpacity(d.userId)})`)
       .attr('stroke', '#00FF41')
       .attr('stroke-width', d => d.isCurrentUser ? 2 : 1)
+      .attr('shape-rendering', 'crispEdges')
+
+    // Inner inset frame — pixel art detail
+    nodeSel.append('rect')
+      .attr('x', d => -(nSize(d) - 5))
+      .attr('y', d => -(nSize(d) - 5))
+      .attr('width', d => (nSize(d) - 5) * 2)
+      .attr('height', d => (nSize(d) - 5) * 2)
+      .attr('fill', 'none')
+      .attr('stroke', d => d.isCurrentUser ? 'rgba(0,0,0,0.25)' : 'rgba(0,255,65,0.22)')
+      .attr('stroke-width', 1)
+      .attr('shape-rendering', 'crispEdges')
+      .style('pointer-events', 'none')
 
     // Initials label
     nodeSel.append('text')
@@ -162,9 +186,9 @@ export default function Graph({ data, mode }: Props) {
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
       .attr('fill', d => d.isCurrentUser ? '#000000' : '#00FF41')
-      .attr('font-size', d => d.isCurrentUser ? '13' : '11')
-      .attr('font-weight', '600')
-      .attr('font-family', 'Outfit, system-ui, sans-serif')
+      .attr('font-size', d => d.isCurrentUser ? '13' : '10')
+      .attr('font-weight', '700')
+      .attr('font-family', '"Courier New", Courier, monospace')
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
@@ -172,10 +196,10 @@ export default function Graph({ data, mode }: Props) {
     nodeSel.append('text')
       .text(d => d.displayName.split(' ')[0])
       .attr('text-anchor', 'middle')
-      .attr('y', d => (d.isCurrentUser ? 30 : 24) + 14)
-      .attr('fill', '#00FF41')
-      .attr('font-size', '11')
-      .attr('font-family', 'Outfit, system-ui, sans-serif')
+      .attr('y', d => nSize(d) + 13)
+      .attr('fill', 'rgba(0,255,65,0.6)')
+      .attr('font-size', '10')
+      .attr('font-family', '"Courier New", Courier, monospace')
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
@@ -214,14 +238,14 @@ export default function Graph({ data, mode }: Props) {
           left: edgeLabel.x,
           top: edgeLabel.y - 36,
           transform: 'translateX(-50%)',
-          background: 'rgba(10, 10, 10, 0.92)',
-          border: '1px solid #113311',
-          borderRadius: '0',
+          background: 'rgba(3, 6, 3, 0.94)',
+          border: '1px solid rgba(0,255,65,0.25)',
           padding: '4px 12px',
-          fontSize: '12px',
-          color: '#ddffdd',
+          fontSize: '11px',
+          fontFamily: '"Courier New", monospace',
+          color: '#00FF41',
           pointerEvents: 'none',
-          backdropFilter: 'blur(8px)',
+          backdropFilter: 'blur(12px)',
           whiteSpace: 'nowrap',
           zIndex: 20,
         }}>
@@ -237,12 +261,12 @@ export default function Graph({ data, mode }: Props) {
           <div className="node-card-info">
             <div className="node-card-name">{selectedNode.displayName}</div>
             <div className="node-card-sub" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>{selectedNode.isCurrentUser ? 'You' : selectedNode.spotifyId}</span>
+              <span>{selectedNode.isCurrentUser ? 'you' : selectedNode.spotifyId}</span>
               {selectedNode.lyricStatus === 'ready' && (
-                <span style={{ color: '#00FF41', fontSize: 11 }}>● lyric ready</span>
+                <span style={{ color: '#00FF41', fontSize: 10, letterSpacing: '0.3px' }}>■ lyric ready</span>
               )}
               {selectedNode.lyricStatus === 'pending' && (
-                <span style={{ color: '#fbbf24', fontSize: 11 }}>● computing…</span>
+                <span style={{ color: '#fbbf24', fontSize: 10, letterSpacing: '0.3px' }}>■ computing</span>
               )}
             </div>
           </div>
@@ -261,6 +285,5 @@ function edgeColor(sim: number): string {
   if (sim >= 0.75) return '#00FF41'
   if (sim >= 0.55) return '#00CC33'
   if (sim >= 0.35) return '#009922'
-  return '#004411'
+  return '#005511'
 }
-
