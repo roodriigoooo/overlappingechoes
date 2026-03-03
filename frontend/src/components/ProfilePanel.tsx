@@ -6,9 +6,10 @@ interface Props {
   profile: Profile | null
   refreshing: boolean
   onRefresh: () => void
+  onLogout: () => void
 }
 
-export default function ProfilePanel({ user, profile, refreshing, onRefresh }: Props) {
+export default function ProfilePanel({ user, profile, refreshing, onRefresh, onLogout }: Props) {
   if (!user) {
     return (
       <>
@@ -23,15 +24,17 @@ export default function ProfilePanel({ user, profile, refreshing, onRefresh }: P
   }
 
   const lyricStatus = profile?.lyricStatus ?? 'none'
-  const lastUpdated = profile?.lastUpdated
-    ? timeAgo(profile.lastUpdated)
-    : null
+  const lastUpdated = profile?.lastUpdated ? timeAgo(profile.lastUpdated) : null
 
   return (
     <>
       <div className="panel-header">
         <span className="panel-title">Profile</span>
+        <button className="btn-link" onClick={onLogout} style={{ fontSize: 10, letterSpacing: '0.3px' }}>
+          sign out
+        </button>
       </div>
+
       <div className="panel-body">
         {/* Identity */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -42,29 +45,6 @@ export default function ProfilePanel({ user, profile, refreshing, onRefresh }: P
             <div className="profile-name">{user.displayName}</div>
             <div className="profile-id">{user.spotifyId}</div>
           </div>
-        </div>
-
-        {/* Lyric status */}
-        <div>
-          <div className="status-row">
-            <div className={`status-dot ${lyricStatus}`} />
-            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-              {lyricStatus === 'ready' && `Lyric profile ready`}
-              {lyricStatus === 'pending' && 'Building lyric profile…'}
-              {lyricStatus === 'failed' && 'Lyric profile failed'}
-              {lyricStatus === 'none' && 'No profile yet'}
-            </span>
-          </div>
-          {lastUpdated && (
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-              Updated {lastUpdated}
-            </div>
-          )}
-          {profile?.lyricTracksAnalyzed != null && lyricStatus === 'ready' && (
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
-              {profile.lyricTracksAnalyzed} tracks analyzed
-            </div>
-          )}
         </div>
 
         {/* Top genres */}
@@ -87,19 +67,36 @@ export default function ProfilePanel({ user, profile, refreshing, onRefresh }: P
               {profile.topArtistsPreview.map((a, i) => (
                 <div key={a.id} className="artist-item">
                   <span className="artist-num">{i + 1}</span>
-                  <span>{a.name}</span>
+                  <span style={{ fontWeight: i < 3 ? 500 : 400 }}>{a.name}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
+        {/* Lyric status */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="status-row">
+            <div className={`status-dot ${lyricStatus}`} />
+            <span style={{ color: 'var(--ui-text-muted)', fontSize: 12 }}>
+              {lyricStatus === 'ready'   && 'Lyric profile ready'}
+              {lyricStatus === 'pending' && 'Building lyric profile…'}
+              {lyricStatus === 'failed'  && 'Lyric profile failed'}
+              {lyricStatus === 'none'    && 'No lyric profile yet'}
+            </span>
+          </div>
+          {lastUpdated && (
+            <div style={{ fontSize: 11, color: 'var(--ui-text-dim)', paddingLeft: 14 }}>
+              Updated {lastUpdated}
+              {profile?.lyricTracksAnalyzed != null && lyricStatus === 'ready' && (
+                <> · {profile.lyricTracksAnalyzed} tracks</>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Refresh */}
-        <button
-          className="btn btn-primary"
-          onClick={onRefresh}
-          disabled={refreshing}
-        >
+        <button className="btn btn-primary" onClick={onRefresh} disabled={refreshing}>
           {refreshing
             ? <><span className="spin">↻</span> Refreshing…</>
             : 'Refresh Profile'
@@ -107,7 +104,7 @@ export default function ProfilePanel({ user, profile, refreshing, onRefresh }: P
         </button>
 
         {!profile?.hasProfile && !refreshing && (
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 11, color: 'var(--ui-text-dim)', textAlign: 'center', lineHeight: 1.6 }}>
             Refresh to build your music taste profile.
           </p>
         )}

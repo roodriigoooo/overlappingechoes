@@ -3,7 +3,6 @@ import * as d3 from 'd3'
 import type { GraphData, GraphNode } from '../types'
 
 type SimNode = d3.SimulationNodeDatum & GraphNode
-
 type SimLink = d3.SimulationLinkDatum<SimNode> & { similarity: number }
 
 interface Props {
@@ -17,8 +16,40 @@ interface EdgeLabel {
   sim: number
 }
 
-// Node "radius" (half of square side)
-const nSize = (d: SimNode) => d.isCurrentUser ? 28 : 20
+// Pixel-circle geometry
+// Large (current user): 7×7 grid, pixel-size 4 → 28px total, spans [-14, +14]
+const LARGE_PIXELS = [
+  { x: -6,  y: -14, w: 12, h: 4 },
+  { x: -10, y: -10, w: 20, h: 4 },
+  { x: -14, y: -6,  w: 28, h: 4 },
+  { x: -14, y: -2,  w: 28, h: 4 },
+  { x: -14, y:  2,  w: 28, h: 4 },
+  { x: -10, y:  6,  w: 20, h: 4 },
+  { x:  -6, y: 10,  w: 12, h: 4 },
+] as const
+
+// Small (friends): 5×5 grid, pixel-size 4 → 20px total, spans [-10, +10]
+const SMALL_PIXELS = [
+  { x: -6,  y: -10, w: 12, h: 4 },
+  { x: -10, y: -6,  w: 20, h: 4 },
+  { x: -10, y: -2,  w: 20, h: 4 },
+  { x: -10, y:  2,  w: 20, h: 4 },
+  { x:  -6, y:  6,  w: 12, h: 4 },
+] as const
+
+// Outer glow ring (one pixel shell outside large circle)
+const LARGE_RING_PIXELS = [
+  { x: -6,  y: -18, w: 12, h: 4 },
+  { x: -14, y: -14, w: 8,  h: 4 },
+  { x:  6,  y: -14, w: 8,  h: 4 },
+  { x: -18, y: -10, w: 4,  h: 24 },
+  { x:  14, y: -10, w: 4,  h: 24 },
+  { x: -14, y: 10,  w: 8,  h: 4 },
+  { x:  6,  y: 10,  w: 8,  h: 4 },
+  { x: -6,  y: 14,  w: 12, h: 4 },
+] as const
+
+const nSize = (d: SimNode) => d.isCurrentUser ? 14 : 10
 
 export default function Graph({ data, mode }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -38,18 +69,15 @@ export default function Graph({ data, mode }: Props) {
 
     const { width, height } = svgEl.getBoundingClientRect()
 
-    // Root group for zoom/pan
     const g = svg.append('g')
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.15, 6])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform)
-      })
+      .on('zoom', (event) => { g.attr('transform', event.transform) })
 
     svg.call(zoom)
 
-    // Calculate dynamic node opacity based on similarity to current user
+    // Opacity by similarity to current user
     const currentUser = data.nodes.find(n => n.isCurrentUser)
     const currentUserId = currentUser?.userId
 
@@ -66,22 +94,16 @@ export default function Graph({ data, mode }: Props) {
 
     const getNodeOpacity = (userId: string) => {
       const sim = nodeOpacityMap.get(userId) || 0
-      return 0.15 + (sim * 0.85)
+      return 0.18 + sim * 0.82
     }
 
-    // Build simulation data
     const nodes: SimNode[] = data.nodes.map(n => ({ ...n }))
     const nodeById = new Map(nodes.map(n => [n.userId, n]))
 
     const links: SimLink[] = data.edges
-      .map(e => ({
-        source: e.source,
-        target: e.target,
-        similarity: e.similarity,
-      }))
+      .map(e => ({ source: e.source, target: e.target, similarity: e.similarity }))
       .filter(l => nodeById.has(l.source as string) && nodeById.has(l.target as string))
 
-    // Force simulation
     const sim = d3.forceSimulation<SimNode>(nodes)
       .force('link', d3.forceLink<SimNode, SimLink>(links)
         .id(d => d.userId)
@@ -89,7 +111,7 @@ export default function Graph({ data, mode }: Props) {
         .distance(d => 190 - d.similarity * 80))
       .force('charge', d3.forceManyBody().strength(-420))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<SimNode>(d => nSize(d) + 10))
+      .force('collision', d3.forceCollide<SimNode>(d => nSize(d) + 20))
 
     // Edges
     const edgeGroup = g.append('g').attr('class', 'edges')
@@ -127,68 +149,64 @@ export default function Graph({ data, mode }: Props) {
         d3.drag<SVGGElement, SimNode>()
           .on('start', (event, d) => {
             if (!event.active) sim.alphaTarget(0.3).restart()
-            d.fx = d.x
-            d.fy = d.y
+            d.fx = d.x; d.fy = d.y
           })
-          .on('drag', (event, d) => {
-            d.fx = event.x
-            d.fy = event.y
-          })
+          .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y })
           .on('end', (event, d) => {
             if (!event.active) sim.alphaTarget(0)
-            d.fx = null
-            d.fy = null
+            d.fx = null; d.fy = null
           })
       )
       .on('click', (_, d) => setSelectedNode(d))
 
-    // Outer glow ring for lyric-ready nodes
-    nodeSel.filter(d => d.lyricStatus === 'ready')
-      .append('rect')
-      .attr('x', d => -(nSize(d) + 7))
-      .attr('y', d => -(nSize(d) + 7))
-      .attr('width', d => (nSize(d) + 7) * 2)
-      .attr('height', d => (nSize(d) + 7) * 2)
-      .attr('fill', 'none')
-      .attr('stroke', '#00FF41')
-      .attr('stroke-width', 1)
-      .attr('stroke-opacity', 0.35)
-      .attr('shape-rendering', 'crispEdges')
+    // Transparent hit area (enables pointer events on <g>)
+    nodeSel.append('circle')
+      .attr('r', d => nSize(d) + 6)
+      .attr('fill', 'transparent')
 
-    // Main square
-    nodeSel.append('rect')
-      .attr('x', d => -nSize(d))
-      .attr('y', d => -nSize(d))
-      .attr('width', d => nSize(d) * 2)
-      .attr('height', d => nSize(d) * 2)
-      .attr('fill', d => d.isCurrentUser
+    // Lyric-ready glow ring (pixel outline)
+    nodeSel.filter(d => d.lyricStatus === 'ready' && d.isCurrentUser)
+      .each(function () {
+        const group = d3.select(this)
+        LARGE_RING_PIXELS.forEach(p => {
+          group.append('rect')
+            .attr('x', p.x).attr('y', p.y)
+            .attr('width', p.w).attr('height', p.h)
+            .attr('fill', '#00FF41')
+            .attr('fill-opacity', 0.30)
+            .attr('shape-rendering', 'crispEdges')
+            .style('pointer-events', 'none')
+        })
+      })
+
+    // Pixel circle body
+    nodeSel.each(function (d) {
+      const group = d3.select<SVGGElement, SimNode>(this as SVGGElement)
+      const pixels = d.isCurrentUser ? LARGE_PIXELS : SMALL_PIXELS
+      const fill = d.isCurrentUser
         ? '#00FF41'
-        : `rgba(0, 255, 65, ${getNodeOpacity(d.userId)})`)
-      .attr('stroke', '#00FF41')
-      .attr('stroke-width', d => d.isCurrentUser ? 2 : 1)
-      .attr('shape-rendering', 'crispEdges')
+        : `rgba(0, 255, 65, ${getNodeOpacity(d.userId)})`
 
-    // Inner inset frame — pixel art detail
-    nodeSel.append('rect')
-      .attr('x', d => -(nSize(d) - 5))
-      .attr('y', d => -(nSize(d) - 5))
-      .attr('width', d => (nSize(d) - 5) * 2)
-      .attr('height', d => (nSize(d) - 5) * 2)
-      .attr('fill', 'none')
-      .attr('stroke', d => d.isCurrentUser ? 'rgba(0,0,0,0.25)' : 'rgba(0,255,65,0.22)')
-      .attr('stroke-width', 1)
-      .attr('shape-rendering', 'crispEdges')
-      .style('pointer-events', 'none')
+      pixels.forEach(p => {
+        group.append('rect')
+          .attr('x', p.x).attr('y', p.y)
+          .attr('width', p.w).attr('height', p.h)
+          .attr('fill', fill)
+          .attr('shape-rendering', 'crispEdges')
+          .style('pointer-events', 'none')
+      })
+    })
 
-    // Initials label
-    nodeSel.append('text')
+    // Initials — current user only (28px circle can fit them)
+    nodeSel.filter(d => d.isCurrentUser)
+      .append('text')
       .text(d => initials(d.displayName))
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
-      .attr('fill', d => d.isCurrentUser ? '#000000' : '#00FF41')
-      .attr('font-size', d => d.isCurrentUser ? '13' : '10')
+      .attr('fill', '#000')
+      .attr('font-size', '9')
       .attr('font-weight', '700')
-      .attr('font-family', '"Courier New", Courier, monospace')
+      .attr('font-family', "'Outfit', sans-serif")
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
@@ -196,14 +214,14 @@ export default function Graph({ data, mode }: Props) {
     nodeSel.append('text')
       .text(d => d.displayName.split(' ')[0])
       .attr('text-anchor', 'middle')
-      .attr('y', d => nSize(d) + 13)
-      .attr('fill', 'rgba(0,255,65,0.6)')
+      .attr('y', d => nSize(d) + 14)
+      .attr('fill', 'rgba(255,255,255,0.75)')
       .attr('font-size', '10')
-      .attr('font-family', '"Courier New", Courier, monospace')
+      .attr('font-weight', '500')
+      .attr('font-family', "'Outfit', sans-serif")
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
-    // Tick
     sim.on('tick', () => {
       edgeSel
         .attr('x1', d => (d.source as SimNode).x!)
@@ -238,16 +256,19 @@ export default function Graph({ data, mode }: Props) {
           left: edgeLabel.x,
           top: edgeLabel.y - 36,
           transform: 'translateX(-50%)',
-          background: 'rgba(3, 6, 3, 0.94)',
-          border: '1px solid rgba(0,255,65,0.25)',
+          background: 'rgba(255,255,255,0.97)',
+          border: '1px solid rgba(0,0,0,0.08)',
+          borderRadius: 3,
           padding: '4px 12px',
           fontSize: '11px',
-          fontFamily: '"Courier New", monospace',
-          color: '#00FF41',
+          fontFamily: "'Outfit', sans-serif",
+          fontWeight: 600,
+          color: '#111',
           pointerEvents: 'none',
           backdropFilter: 'blur(12px)',
           whiteSpace: 'nowrap',
           zIndex: 20,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
         }}>
           {Math.round(edgeLabel.sim * 100)}% match
         </div>
@@ -263,10 +284,10 @@ export default function Graph({ data, mode }: Props) {
             <div className="node-card-sub" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>{selectedNode.isCurrentUser ? 'you' : selectedNode.spotifyId}</span>
               {selectedNode.lyricStatus === 'ready' && (
-                <span style={{ color: '#00FF41', fontSize: 10, letterSpacing: '0.3px' }}>■ lyric ready</span>
+                <span style={{ color: '#16a34a', fontSize: 10 }}>● lyric ready</span>
               )}
               {selectedNode.lyricStatus === 'pending' && (
-                <span style={{ color: '#fbbf24', fontSize: 10, letterSpacing: '0.3px' }}>■ computing</span>
+                <span style={{ color: '#d97706', fontSize: 10 }}>● computing</span>
               )}
             </div>
           </div>

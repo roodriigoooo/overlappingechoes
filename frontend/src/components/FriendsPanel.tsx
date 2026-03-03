@@ -114,7 +114,7 @@ export default function FriendsPanel({ friends, requests, onUpdate }: Props) {
                     <div className="request-name">
                       {r.toDisplayName || r.toSpotifyId}
                     </div>
-                    <div className="request-sub" style={{ color: 'var(--text-dim)' }}>
+                    <div className="request-sub" style={{ color: 'var(--ui-text-dim)' }}>
                       Pending…
                     </div>
                   </div>

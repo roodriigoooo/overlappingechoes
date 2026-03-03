@@ -15,12 +15,11 @@ export default function App() {
   const [friendRequests, setFriendRequests] = useState<FriendRequests>({ incoming: [], outgoing: [] })
   const [mode, setMode] = useState<'taste' | 'lyric'>('taste')
   const [refreshing, setRefreshing] = useState(false)
-  const [leftOpen, setLeftOpen] = useState(true)
-  const [rightOpen, setRightOpen] = useState(true)
+  const [leftOpen, setLeftOpen] = useState(false)
+  const [rightOpen, setRightOpen] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Handle OAuth callback — token arrives as query param
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const t = params.get('token')
@@ -31,7 +30,6 @@ export default function App() {
     }
   }, [])
 
-  // Load all data once on auth
   useEffect(() => {
     if (!token) return
     api.getMe().then(setUser).catch(() => { })
@@ -41,13 +39,11 @@ export default function App() {
     api.getFriendRequests().then(setFriendRequests).catch(() => { })
   }, [token])
 
-  // Reload graph when mode changes
   useEffect(() => {
     if (!token) return
     api.getGraph(mode).then(setGraphData).catch(() => { })
   }, [mode, token])
 
-  // Poll profile while lyric computation is pending
   useEffect(() => {
     if (profile?.lyricStatus !== 'pending') return
     pollRef.current = setTimeout(() => {
@@ -61,7 +57,6 @@ export default function App() {
     return () => { if (pollRef.current) clearTimeout(pollRef.current) }
   }, [profile?.lyricStatus, mode])
 
-  // Poll friend requests every 20 seconds so recipients see incoming requests
   useEffect(() => {
     if (!token) return
     const interval = setInterval(() => {
@@ -139,13 +134,47 @@ export default function App() {
 
         <Graph data={graphData} mode={mode} />
 
-        {/* ── Floating HUD ── */}
-        <div className="hud-brand">
-          <div className="header-logo"><LogoSvg /></div>
-          <span className="header-title">Spotify Graph</span>
+        {/* ── Left panel toggle (profile) ── */}
+        <button
+          className="panel-toggle panel-toggle-left"
+          onClick={() => setLeftOpen(o => !o)}
+          aria-label="Toggle profile panel"
+        >
+          <ProfilePixelIcon />
+        </button>
+
+        <div className={`panel panel-left${leftOpen ? '' : ' collapsed-left'}`}>
+          <ProfilePanel
+            user={user}
+            profile={profile}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            onLogout={handleLogout}
+          />
         </div>
 
-        <div className="hud-center">
+        {/* ── Right panel toggle (friends) ── */}
+        <button
+          className="panel-toggle panel-toggle-right"
+          onClick={() => setRightOpen(o => !o)}
+          aria-label="Toggle friends panel"
+        >
+          {!rightOpen && incomingCount > 0 && (
+            <span className="toggle-badge">{incomingCount}</span>
+          )}
+          <FriendsPixelIcon />
+        </button>
+
+        <div className={`panel panel-right${rightOpen ? '' : ' collapsed-right'}`}>
+          <FriendsPanel
+            friends={friends}
+            requests={friendRequests}
+            onUpdate={handleFriendUpdate}
+          />
+        </div>
+
+        {/* ── Mode toggle (bottom centre) ── */}
+        <div className="hud-bottom">
           <div className="mode-toggle">
             <button
               className={`mode-btn${mode === 'taste' ? ' active' : ''}`}
@@ -160,55 +189,6 @@ export default function App() {
               Lyric
             </button>
           </div>
-        </div>
-
-        <div className="hud-user">
-          {user && <span className="header-user">{user.displayName}</span>}
-          <button className="btn-logout" onClick={handleLogout}>sign out</button>
-        </div>
-
-        {/* ── Left panel toggle ── */}
-        <button
-          className={`panel-toggle panel-toggle-left${leftOpen ? ' open' : ''}`}
-          onClick={() => setLeftOpen(o => !o)}
-          aria-label="Toggle profile panel"
-        >
-          <span className="toggle-icon">
-            <ProfilePixelIcon />
-          </span>
-          <span className="toggle-label">you</span>
-        </button>
-
-        <div className={`panel panel-left${leftOpen ? '' : ' collapsed-left'}`}>
-          <ProfilePanel
-            user={user}
-            profile={profile}
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-          />
-        </div>
-
-        {/* ── Right panel toggle ── */}
-        <button
-          className={`panel-toggle panel-toggle-right${rightOpen ? ' open' : ''}`}
-          onClick={() => setRightOpen(o => !o)}
-          aria-label="Toggle friends panel"
-        >
-          {!rightOpen && incomingCount > 0 && (
-            <span className="toggle-badge">{incomingCount}</span>
-          )}
-          <span className="toggle-icon">
-            <NetPixelIcon />
-          </span>
-          <span className="toggle-label">net</span>
-        </button>
-
-        <div className={`panel panel-right${rightOpen ? '' : ' collapsed-right'}`}>
-          <FriendsPanel
-            friends={friends}
-            requests={friendRequests}
-            onUpdate={handleFriendUpdate}
-          />
         </div>
       </div>
     </div>
@@ -235,30 +215,35 @@ function SpotifyIcon() {
   )
 }
 
-// Pixel-art person icon for profile toggle
+// Pixel-art person icon — 7×9 grid, 2px pixels
 function ProfilePixelIcon() {
   return (
-    <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor" shapeRendering="crispEdges">
-      <rect x="4" y="0" width="4" height="4" />
-      <rect x="2" y="4" width="8" height="1" />
-      <rect x="1" y="7" width="10" height="7" />
-      <rect x="0" y="8" width="1" height="5" />
-      <rect x="11" y="8" width="1" height="5" />
+    <svg width="14" height="18" viewBox="0 0 7 9" fill="#333" shapeRendering="crispEdges">
+      {/* head */}
+      <rect x="2" y="0" width="3" height="3" />
+      {/* shoulders */}
+      <rect x="1" y="3" width="5" height="1" />
+      {/* body */}
+      <rect x="1" y="4" width="5" height="2" />
+      {/* legs */}
+      <rect x="1" y="6" width="2" height="3" />
+      <rect x="4" y="6" width="2" height="3" />
     </svg>
   )
 }
 
-// Pixel-art network icon for friends toggle
-function NetPixelIcon() {
+// Pixel-art two-people icon — friends
+function FriendsPixelIcon() {
   return (
-    <svg width="14" height="12" viewBox="0 0 14 12" fill="currentColor" shapeRendering="crispEdges">
-      <rect x="0" y="0" width="4" height="4" />
-      <rect x="5" y="0" width="4" height="4" />
-      <rect x="10" y="0" width="4" height="4" />
-      <rect x="2" y="4" width="1" height="3" />
-      <rect x="7" y="4" width="1" height="3" />
-      <rect x="2" y="7" width="10" height="1" />
-      <rect x="6" y="8" width="1" height="4" />
+    <svg width="22" height="16" viewBox="0 0 11 8" fill="#333" shapeRendering="crispEdges">
+      {/* person left */}
+      <rect x="0" y="0" width="2" height="2" />
+      <rect x="0" y="3" width="4" height="3" />
+      {/* person right */}
+      <rect x="9" y="0" width="2" height="2" />
+      <rect x="7" y="3" width="4" height="3" />
+      {/* link */}
+      <rect x="4" y="1" width="3" height="1" />
     </svg>
   )
 }
