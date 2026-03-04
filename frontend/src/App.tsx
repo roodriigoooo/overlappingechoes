@@ -14,6 +14,7 @@ export default function App() {
   const [friends, setFriends] = useState<Friend[]>([])
   const [friendRequests, setFriendRequests] = useState<FriendRequests>({ incoming: [], outgoing: [] })
   const [mode, setMode] = useState<'taste' | 'lyric'>('taste')
+  const [initialLoad, setInitialLoad] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [leftOpen, setLeftOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
@@ -34,14 +35,17 @@ export default function App() {
     if (!token) return
     api.getMe().then(setUser).catch(() => { })
     api.getProfile().then(setProfile).catch(() => { })
-    api.getGraph('taste').then(setGraphData).catch(() => { })
     api.getFriends().then(setFriends).catch(() => { })
     api.getFriendRequests().then(setFriendRequests).catch(() => { })
   }, [token])
 
   useEffect(() => {
     if (!token) return
-    api.getGraph(mode).then(setGraphData).catch(() => { })
+    setGraphData(null)
+    api.getGraph(mode).then(d => {
+      setGraphData(d)
+      setInitialLoad(false)
+    }).catch(() => { setInitialLoad(false) })
   }, [mode, token])
 
   useEffect(() => {
@@ -119,7 +123,7 @@ export default function App() {
     )
   }
 
-  if (token && (!user || !graphData)) {
+  if (token && (!user || initialLoad)) {
     return <LoadingScreen text="Loading taste graph..." />
   }
 

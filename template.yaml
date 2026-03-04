@@ -23,6 +23,11 @@ Parameters:
     Description: HuggingFace Inference API key for lyric embeddings
     NoEcho: true
 
+  FrontendUrl:
+    Type: String
+    Description: Public URL of the frontend (used as post-login redirect)
+    Default: https://overlappingechoes.app
+
 Globals:
   Function:
     Runtime: python3.12
@@ -37,7 +42,7 @@ Globals:
         SPOTIFY_CLIENT_ID: !Ref SpotifyClientId
         SPOTIFY_CLIENT_SECRET: !Ref SpotifyClientSecret
         JWT_SECRET: !Ref JWTSecret
-        FRONTEND_CALLBACK_URL: !Sub 'https://${FrontendDistribution.DomainName}'
+        FRONTEND_CALLBACK_URL: !Ref FrontendUrl
 
 Resources:
   # ============================================

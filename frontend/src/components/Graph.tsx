@@ -2,6 +2,131 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import type { GraphData, GraphNode } from '../types'
 
+// ─── Persona archetypes ────────────────────────────────────────────────────
+interface Persona {
+  label: string
+  desc: string
+  corner: 'tl' | 'tr' | 'bl' | 'br'
+}
+
+const TASTE_PERSONAS: Persona[] = [
+  { label: 'Pop / Mainstream',    desc: 'Chart-topping hits, broad appeal, high energy anthems',     corner: 'tl' },
+  { label: 'Electronic / Dance',  desc: 'Synthesized beats, club culture, sonic experimentation',     corner: 'tr' },
+  { label: 'Indie / Folk',        desc: 'Acoustic textures, DIY spirit, intimate storytelling',       corner: 'bl' },
+  { label: 'Hip-Hop / R&B',       desc: 'Rhythmic poetry, soul-rooted grooves, cultural expression', corner: 'br' },
+]
+
+const LYRIC_PERSONAS: Persona[] = [
+  { label: 'Romantic',        desc: 'Love songs, longing, emotional vulnerability',           corner: 'tl' },
+  { label: 'Party Anthems',   desc: 'Celebration, euphoria, living in the moment',            corner: 'tr' },
+  { label: 'Introspective',   desc: 'Self-reflection, existential depth, quiet honesty',      corner: 'bl' },
+  { label: 'Timeless Classics', desc: 'Universal themes, enduring imagery, poetic craft',     corner: 'br' },
+]
+
+// Hollow diamond pixel art — 5×5 at 4px → 20px
+const DIAMOND: { x: number; y: number; w: number; h: number }[] = [
+  { x: 8,  y: 0,  w: 4, h: 4 },   // top tip
+  { x: 4,  y: 4,  w: 4, h: 4 },
+  { x: 12, y: 4,  w: 4, h: 4 },
+  { x: 0,  y: 8,  w: 4, h: 4 },   // mid-left
+  { x: 16, y: 8,  w: 4, h: 4 },   // mid-right
+  { x: 4,  y: 12, w: 4, h: 4 },
+  { x: 12, y: 12, w: 4, h: 4 },
+  { x: 8,  y: 16, w: 4, h: 4 },   // bottom tip
+]
+
+function PersonaNode({ persona, hovered, onEnter, onLeave }: {
+  persona: Persona
+  hovered: boolean
+  onEnter: () => void
+  onLeave: () => void
+}) {
+  const isTop    = persona.corner === 'tl' || persona.corner === 'tr'
+  const isLeft   = persona.corner === 'tl' || persona.corner === 'bl'
+  const textAlign = isLeft ? 'left' : 'right'
+
+  const pos: React.CSSProperties = {
+    position: 'absolute',
+    [isTop  ? 'top'    : 'bottom']: 72,
+    [isLeft ? 'left'   : 'right']:  68,
+  }
+
+  return (
+    <div
+      style={{
+        ...pos,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: isLeft ? 'flex-start' : 'flex-end',
+        gap: 7,
+        opacity: hovered ? 0.72 : 0.22,
+        transition: 'opacity 0.25s ease',
+        cursor: 'default',
+        pointerEvents: 'all',
+        userSelect: 'none',
+      }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      {/* Pixel diamond */}
+      <svg width={20} height={20} shapeRendering="crispEdges">
+        {DIAMOND.map((p, i) => (
+          <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h}
+            fill={hovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)'}
+          />
+        ))}
+      </svg>
+
+      {/* Label */}
+      <div style={{
+        fontFamily: "'Outfit', sans-serif",
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: 1.4,
+        textTransform: 'uppercase' as const,
+        color: 'rgba(255,255,255,0.9)',
+        textAlign,
+        lineHeight: 1.2,
+      }}>
+        {persona.label}
+      </div>
+
+      {/* Description — only when hovered */}
+      {hovered && (
+        <div style={{
+          fontFamily: "'Outfit', sans-serif",
+          fontSize: 10,
+          color: 'rgba(255,255,255,0.55)',
+          textAlign,
+          maxWidth: 140,
+          lineHeight: 1.5,
+        }}>
+          {persona.desc}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PersonaOverlay({ mode }: { mode: string }) {
+  const [hovered, setHovered] = useState<string | null>(null)
+  const personas = mode === 'lyric' ? LYRIC_PERSONAS : TASTE_PERSONAS
+
+  return (
+    <>
+      {personas.map(p => (
+        <PersonaNode
+          key={p.corner}
+          persona={p}
+          hovered={hovered === p.corner}
+          onEnter={() => setHovered(p.corner)}
+          onLeave={() => setHovered(null)}
+        />
+      ))}
+    </>
+  )
+}
+
 type SimNode = d3.SimulationNodeDatum & GraphNode
 type SimLink = d3.SimulationLinkDatum<SimNode> & { similarity: number }
 
@@ -233,7 +358,7 @@ export default function Graph({ data, mode }: Props) {
     })
 
     return () => { sim.stop() }
-  }, [data, mode])
+  }, [data])
 
   const solo = !data || data.nodes.length <= 1
 
@@ -243,6 +368,8 @@ export default function Graph({ data, mode }: Props) {
         ref={svgRef}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       />
+
+      <PersonaOverlay mode={mode} />
 
       {solo && (
         <div className="graph-hint">
