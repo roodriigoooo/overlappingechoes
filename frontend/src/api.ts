@@ -1,5 +1,11 @@
 const API = 'https://9q14rl4vc1.execute-api.us-east-1.amazonaws.com/prod'
 
+let _onUnauthorized: (() => void) | null = null
+
+export function setUnauthorizedHandler(fn: () => void) {
+  _onUnauthorized = fn
+}
+
 function token() {
   return localStorage.getItem('spotify_token')
 }
@@ -14,6 +20,10 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...(init.headers as Record<string, string> || {}),
     },
   })
+  if (res.status === 401) {
+    _onUnauthorized?.()
+    throw new Error('Unauthorized')
+  }
   const json = await res.json()
   if (!res.ok) throw new Error(json.error || 'Request failed')
   return json.data as T

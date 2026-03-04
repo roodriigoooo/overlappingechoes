@@ -2,130 +2,135 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import type { GraphData, GraphNode } from '../types'
 
-// ─── Persona archetypes ────────────────────────────────────────────────────
-interface Persona {
-  label: string
+// ─── Anchor song archetypes ────────────────────────────────────────────────
+interface AnchorSongDef {
+  song: string
+  artist: string
   desc: string
-  corner: 'tl' | 'tr' | 'bl' | 'br'
 }
 
-const TASTE_PERSONAS: Persona[] = [
-  { label: 'Pop / Mainstream',    desc: 'Chart-topping hits, broad appeal, high energy anthems',     corner: 'tl' },
-  { label: 'Electronic / Dance',  desc: 'Synthesized beats, club culture, sonic experimentation',     corner: 'tr' },
-  { label: 'Indie / Folk',        desc: 'Acoustic textures, DIY spirit, intimate storytelling',       corner: 'bl' },
-  { label: 'Hip-Hop / R&B',       desc: 'Rhythmic poetry, soul-rooted grooves, cultural expression', corner: 'br' },
+interface AnchorCategory {
+  id: string
+  label: string
+  color: string
+  corner: 'tl' | 'tr' | 'bl' | 'br'
+  songs: AnchorSongDef[]
+}
+
+interface PickedAnchor {
+  id: string
+  label: string
+  color: string
+  corner: 'tl' | 'tr' | 'bl' | 'br'
+  song: string
+  artist: string
+  desc: string
+}
+
+const LYRIC_CATEGORIES: AnchorCategory[] = [
+  {
+    id: 'romantic', label: 'Romantic', color: '#FF69B4', corner: 'tl',
+    songs: [
+      { song: 'Perfect', artist: 'Ed Sheeran', desc: 'A timeless declaration of love at its most tender.' },
+      { song: 'All of Me', artist: 'John Legend', desc: 'Vulnerability and devotion woven into every line.' },
+      { song: 'Lover', artist: 'Taylor Swift', desc: 'Two worlds colliding in a perfect lyrical embrace.' },
+      { song: 'Make You Feel My Love', artist: 'Bob Dylan', desc: 'A quiet promise of unconditional affection.' },
+      { song: 'Bloom', artist: 'The Paper Kites', desc: 'Intimate and hushed — love at its most poetic.' },
+    ],
+  },
+  {
+    id: 'party', label: 'Party Anthems', color: '#FFD700', corner: 'tr',
+    songs: [
+      { song: 'Blinding Lights', artist: 'The Weeknd', desc: 'Euphoric rush of synth-pop ecstasy.' },
+      { song: 'Levitating', artist: 'Dua Lipa', desc: 'An irresistible invitation to lose yourself in the beat.' },
+      { song: 'Uptown Funk', artist: 'Bruno Mars', desc: 'Pure groove incarnate — impossible not to move.' },
+      { song: "Can't Stop the Feeling!", artist: 'Justin Timberlake', desc: 'The world stops, the music starts.' },
+      { song: 'Good as Hell', artist: 'Lizzo', desc: 'A battle cry of confidence and joy.' },
+    ],
+  },
+  {
+    id: 'introspective', label: 'Introspective', color: '#8AB4F8', corner: 'bl',
+    songs: [
+      { song: 'Skinny Love', artist: 'Bon Iver', desc: 'Quiet anguish rendered in perfect musical detail.' },
+      { song: 'Liability', artist: 'Lorde', desc: 'Unflinching self-examination set to piano and pain.' },
+      { song: 'Motion Picture Soundtrack', artist: 'Radiohead', desc: 'A farewell so tender it aches.' },
+      { song: '4:44', artist: 'Jay-Z', desc: 'Confessional rap at its most raw and honest.' },
+      { song: 'Lua', artist: 'Bright Eyes', desc: 'Vulnerability and longing in hushed acoustic tones.' },
+    ],
+  },
+  {
+    id: 'timeless', label: 'Timeless', color: '#C77DFF', corner: 'br',
+    songs: [
+      { song: 'Bohemian Rhapsody', artist: 'Queen', desc: 'An opera, a rock ballad, a confession all at once.' },
+      { song: 'Hallelujah', artist: 'Leonard Cohen', desc: 'Sacred and broken — poetry in its purest form.' },
+      { song: 'Strange Fruit', artist: 'Billie Holiday', desc: 'A protest so devastating it changed everything.' },
+      { song: "What's Going On", artist: 'Marvin Gaye', desc: "A question the world still can't answer." },
+      { song: 'Yesterday', artist: 'The Beatles', desc: 'The most covered song in history — for good reason.' },
+    ],
+  },
 ]
 
-const LYRIC_PERSONAS: Persona[] = [
-  { label: 'Romantic',        desc: 'Love songs, longing, emotional vulnerability',           corner: 'tl' },
-  { label: 'Party Anthems',   desc: 'Celebration, euphoria, living in the moment',            corner: 'tr' },
-  { label: 'Introspective',   desc: 'Self-reflection, existential depth, quiet honesty',      corner: 'bl' },
-  { label: 'Timeless Classics', desc: 'Universal themes, enduring imagery, poetic craft',     corner: 'br' },
+const TASTE_CATEGORIES: AnchorCategory[] = [
+  {
+    id: 'pop', label: 'Pop / Mainstream', color: '#00E5FF', corner: 'tl',
+    songs: [
+      { song: 'Anti-Hero', artist: 'Taylor Swift', desc: 'Chart-conquering vulnerability with a wink.' },
+      { song: 'As It Was', artist: 'Harry Styles', desc: 'Melancholic pop perfection, inescapable and brilliant.' },
+      { song: 'Bad Guy', artist: 'Billie Eilish', desc: 'Cool subversion wrapped in an irresistible pop hook.' },
+      { song: 'Shape of You', artist: 'Ed Sheeran', desc: "Billions of streams don't lie." },
+      { song: 'Flowers', artist: 'Miley Cyrus', desc: 'Empowerment pop at its most anthemic.' },
+    ],
+  },
+  {
+    id: 'electronic', label: 'Electronic / Dance', color: '#FF3EA5', corner: 'tr',
+    songs: [
+      { song: 'One More Time', artist: 'Daft Punk', desc: 'The sound of electronic music reaching its zenith.' },
+      { song: 'Strobe', artist: 'deadmau5', desc: 'Ten minutes of transcendence — no words needed.' },
+      { song: 'Midnight City', artist: 'M83', desc: 'A neon-lit chase through a dream of a city.' },
+      { song: 'Around the World', artist: 'Daft Punk', desc: "A loop that never grows old — that's the genius." },
+      { song: 'Latch', artist: 'Disclosure', desc: 'UK garage warmth and electronic precision combined.' },
+    ],
+  },
+  {
+    id: 'indie', label: 'Indie / Folk', color: '#FFBC42', corner: 'bl',
+    songs: [
+      { song: 'Holocene', artist: 'Bon Iver', desc: 'Small moments expanding to fill the universe.' },
+      { song: 'Fast Car', artist: 'Tracy Chapman', desc: 'Folk storytelling that breaks hearts without trying.' },
+      { song: 'First Day of My Life', artist: 'Bright Eyes', desc: 'A love song as a quiet revelation.' },
+      { song: 'Lua', artist: 'Bright Eyes', desc: 'Perfectly imperfect indie folk at its most honest.' },
+      { song: 'Re: Stacks', artist: 'Bon Iver', desc: 'Emotional archaeology set to acoustic guitar.' },
+    ],
+  },
+  {
+    id: 'hiphop', label: 'Hip-Hop / R&B', color: '#FF7043', corner: 'br',
+    songs: [
+      { song: 'HUMBLE.', artist: 'Kendrick Lamar', desc: 'A masterclass in confidence and self-awareness.' },
+      { song: 'Alright', artist: 'Kendrick Lamar', desc: "A protest anthem that became a generation's rallying cry." },
+      { song: 'Pink Matter', artist: 'Frank Ocean', desc: 'R&B as a meditation on consciousness and desire.' },
+      { song: 'All Falls Down', artist: 'Kanye West', desc: 'Social commentary wrapped in an irresistible groove.' },
+      { song: 'Superstar', artist: 'Lauryn Hill', desc: 'Neo-soul poetry that never ages.' },
+    ],
+  },
 ]
 
-// Hollow diamond pixel art — 5×5 at 4px → 20px
-const DIAMOND: { x: number; y: number; w: number; h: number }[] = [
-  { x: 8,  y: 0,  w: 4, h: 4 },   // top tip
+function pickSessionAnchors(categories: AnchorCategory[]): PickedAnchor[] {
+  return categories.map(cat => {
+    const picked = cat.songs[Math.floor(Math.random() * cat.songs.length)]
+    return { id: cat.id, label: cat.label, color: cat.color, corner: cat.corner, ...picked }
+  })
+}
+
+// Hollow diamond pixel art — 20×20px, origin top-left
+const DIAMOND = [
+  { x: 8,  y: 0,  w: 4, h: 4 },
   { x: 4,  y: 4,  w: 4, h: 4 },
   { x: 12, y: 4,  w: 4, h: 4 },
-  { x: 0,  y: 8,  w: 4, h: 4 },   // mid-left
-  { x: 16, y: 8,  w: 4, h: 4 },   // mid-right
+  { x: 0,  y: 8,  w: 4, h: 4 },
+  { x: 16, y: 8,  w: 4, h: 4 },
   { x: 4,  y: 12, w: 4, h: 4 },
   { x: 12, y: 12, w: 4, h: 4 },
-  { x: 8,  y: 16, w: 4, h: 4 },   // bottom tip
+  { x: 8,  y: 16, w: 4, h: 4 },
 ]
-
-function PersonaNode({ persona, hovered, onEnter, onLeave }: {
-  persona: Persona
-  hovered: boolean
-  onEnter: () => void
-  onLeave: () => void
-}) {
-  const isTop    = persona.corner === 'tl' || persona.corner === 'tr'
-  const isLeft   = persona.corner === 'tl' || persona.corner === 'bl'
-  const textAlign = isLeft ? 'left' : 'right'
-
-  const pos: React.CSSProperties = {
-    position: 'absolute',
-    [isTop  ? 'top'    : 'bottom']: 72,
-    [isLeft ? 'left'   : 'right']:  68,
-  }
-
-  return (
-    <div
-      style={{
-        ...pos,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: isLeft ? 'flex-start' : 'flex-end',
-        gap: 7,
-        opacity: hovered ? 0.72 : 0.22,
-        transition: 'opacity 0.25s ease',
-        cursor: 'default',
-        pointerEvents: 'all',
-        userSelect: 'none',
-      }}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-    >
-      {/* Pixel diamond */}
-      <svg width={20} height={20} shapeRendering="crispEdges">
-        {DIAMOND.map((p, i) => (
-          <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h}
-            fill={hovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)'}
-          />
-        ))}
-      </svg>
-
-      {/* Label */}
-      <div style={{
-        fontFamily: "'Outfit', sans-serif",
-        fontSize: 9,
-        fontWeight: 700,
-        letterSpacing: 1.4,
-        textTransform: 'uppercase' as const,
-        color: 'rgba(255,255,255,0.9)',
-        textAlign,
-        lineHeight: 1.2,
-      }}>
-        {persona.label}
-      </div>
-
-      {/* Description — only when hovered */}
-      {hovered && (
-        <div style={{
-          fontFamily: "'Outfit', sans-serif",
-          fontSize: 10,
-          color: 'rgba(255,255,255,0.55)',
-          textAlign,
-          maxWidth: 140,
-          lineHeight: 1.5,
-        }}>
-          {persona.desc}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PersonaOverlay({ mode }: { mode: string }) {
-  const [hovered, setHovered] = useState<string | null>(null)
-  const personas = mode === 'lyric' ? LYRIC_PERSONAS : TASTE_PERSONAS
-
-  return (
-    <>
-      {personas.map(p => (
-        <PersonaNode
-          key={p.corner}
-          persona={p}
-          hovered={hovered === p.corner}
-          onEnter={() => setHovered(p.corner)}
-          onLeave={() => setHovered(null)}
-        />
-      ))}
-    </>
-  )
-}
 
 type SimNode = d3.SimulationNodeDatum & GraphNode
 type SimLink = d3.SimulationLinkDatum<SimNode> & { similarity: number }
@@ -139,6 +144,14 @@ interface EdgeLabel {
   x: number
   y: number
   sim: number
+}
+
+interface AnchorInfo {
+  label: string
+  color: string
+  song: string
+  artist: string
+  desc: string
 }
 
 // Pixel-circle geometry
@@ -180,6 +193,16 @@ export default function Graph({ data, mode }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
   const [edgeLabel, setEdgeLabel] = useState<EdgeLabel | null>(null)
+  const [selectedAnchor, setSelectedAnchor] = useState<AnchorInfo | null>(null)
+
+  // Stable random picks per session — initialized once, one set per mode
+  const anchorPicksRef = useRef<{ taste: PickedAnchor[]; lyric: PickedAnchor[] } | null>(null)
+  if (!anchorPicksRef.current) {
+    anchorPicksRef.current = {
+      taste: pickSessionAnchors(TASTE_CATEGORIES),
+      lyric: pickSessionAnchors(LYRIC_CATEGORIES),
+    }
+  }
 
   useEffect(() => {
     if (!svgRef.current) return
@@ -189,10 +212,13 @@ export default function Graph({ data, mode }: Props) {
     svg.selectAll('*').remove()
     setSelectedNode(null)
     setEdgeLabel(null)
+    setSelectedAnchor(null)
 
     if (!data || data.nodes.length === 0) return
 
     const { width, height } = svgEl.getBoundingClientRect()
+    const cx = width / 2
+    const cy = height / 2
 
     const g = svg.append('g')
 
@@ -235,7 +261,7 @@ export default function Graph({ data, mode }: Props) {
         .strength(d => 0.3 + d.similarity * 0.5)
         .distance(d => 190 - d.similarity * 80))
       .force('charge', d3.forceManyBody().strength(-420))
-      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('center', d3.forceCenter(cx, cy))
       .force('collision', d3.forceCollide<SimNode>(d => nSize(d) + 20))
 
     // Edges
@@ -263,7 +289,7 @@ export default function Graph({ data, mode }: Props) {
         setEdgeLabel(null)
       })
 
-    // Nodes
+    // User nodes
     const nodeGroup = g.append('g').attr('class', 'nodes')
     const nodeSel = nodeGroup.selectAll<SVGGElement, SimNode>('g')
       .data(nodes)
@@ -282,7 +308,7 @@ export default function Graph({ data, mode }: Props) {
             d.fx = null; d.fy = null
           })
       )
-      .on('click', (_, d) => setSelectedNode(d))
+      .on('click', (_, d) => { setSelectedNode(d); setSelectedAnchor(null) })
 
     // Transparent hit area (enables pointer events on <g>)
     nodeSel.append('circle')
@@ -347,6 +373,78 @@ export default function Graph({ data, mode }: Props) {
       .style('pointer-events', 'none')
       .style('user-select', 'none')
 
+    // ─── Anchor nodes (embedded archetype markers) ────────────────────────────
+    const anchorPicks = mode === 'lyric'
+      ? anchorPicksRef.current!.lyric
+      : anchorPicksRef.current!.taste
+
+    const marginX = Math.min(cx * 0.72, 340)
+    const marginY = Math.min(cy * 0.68, 220)
+
+    const cornerPos: Record<string, { x: number; y: number }> = {
+      tl: { x: cx - marginX, y: cy - marginY },
+      tr: { x: cx + marginX, y: cy - marginY },
+      bl: { x: cx - marginX, y: cy + marginY },
+      br: { x: cx + marginX, y: cy + marginY },
+    }
+
+    const anchorGroup = g.append('g').attr('class', 'anchors')
+
+    anchorPicks.forEach(anchor => {
+      const pos = cornerPos[anchor.corner]
+      const grp = anchorGroup.append('g')
+        .attr('transform', `translate(${pos.x}, ${pos.y})`)
+        .style('cursor', 'pointer')
+        .attr('opacity', 0.5)
+
+      // Invisible hit area
+      grp.append('circle').attr('r', 26).attr('fill', 'transparent')
+
+      // Diamond pixels — centered (DIAMOND is 20×20, offset by -10)
+      DIAMOND.forEach(p => {
+        grp.append('rect')
+          .attr('x', p.x - 10).attr('y', p.y - 10)
+          .attr('width', p.w).attr('height', p.h)
+          .attr('fill', anchor.color)
+          .attr('shape-rendering', 'crispEdges')
+          .style('pointer-events', 'none')
+      })
+
+      // Category label
+      grp.append('text')
+        .text(anchor.label.toUpperCase())
+        .attr('text-anchor', 'middle')
+        .attr('y', 20)
+        .attr('fill', anchor.color)
+        .attr('font-size', '8')
+        .attr('font-weight', '700')
+        .attr('font-family', "'Outfit', sans-serif")
+        .attr('letter-spacing', '1.2')
+        .style('pointer-events', 'none')
+        .style('user-select', 'none')
+
+      // Song name
+      grp.append('text')
+        .text(`"${anchor.song}"`)
+        .attr('text-anchor', 'middle')
+        .attr('y', 33)
+        .attr('fill', 'rgba(255,255,255,0.38)')
+        .attr('font-size', '8')
+        .attr('font-style', 'italic')
+        .attr('font-family', "'Outfit', sans-serif")
+        .style('pointer-events', 'none')
+        .style('user-select', 'none')
+
+      grp
+        .on('mouseenter', function () { d3.select(this).attr('opacity', 1) })
+        .on('mouseleave', function () { d3.select(this).attr('opacity', 0.5) })
+        .on('click', function (event: MouseEvent) {
+          event.stopPropagation()
+          setSelectedAnchor({ label: anchor.label, color: anchor.color, song: anchor.song, artist: anchor.artist, desc: anchor.desc })
+          setSelectedNode(null)
+        })
+    })
+
     sim.on('tick', () => {
       edgeSel
         .attr('x1', d => (d.source as SimNode).x!)
@@ -358,7 +456,7 @@ export default function Graph({ data, mode }: Props) {
     })
 
     return () => { sim.stop() }
-  }, [data])
+  }, [data, mode])
 
   const solo = !data || data.nodes.length <= 1
 
@@ -368,8 +466,6 @@ export default function Graph({ data, mode }: Props) {
         ref={svgRef}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       />
-
-      <PersonaOverlay mode={mode} />
 
       {solo && (
         <div className="graph-hint">
@@ -419,6 +515,30 @@ export default function Graph({ data, mode }: Props) {
             </div>
           </div>
           <button className="node-card-close" onClick={() => setSelectedNode(null)}>×</button>
+        </div>
+      )}
+
+      {selectedAnchor && (
+        <div className="node-card">
+          <div className="node-card-avatar" style={{
+            background: `${selectedAnchor.color}1A`,
+            border: `1px solid ${selectedAnchor.color}44`,
+            color: selectedAnchor.color,
+            fontSize: 16,
+          }}>
+            ♦
+          </div>
+          <div className="node-card-info">
+            <div className="node-card-name">"{selectedAnchor.song}"</div>
+            <div className="node-card-sub">
+              {selectedAnchor.artist}
+              <span style={{ marginLeft: 6, opacity: 0.55 }}>· {selectedAnchor.label}</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#666', marginTop: 5, lineHeight: 1.5 }}>
+              {selectedAnchor.desc}
+            </div>
+          </div>
+          <button className="node-card-close" onClick={() => setSelectedAnchor(null)}>×</button>
         </div>
       )}
     </>

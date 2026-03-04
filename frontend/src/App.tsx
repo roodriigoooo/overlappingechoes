@@ -22,6 +22,18 @@ export default function App() {
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    api.setUnauthorizedHandler(() => {
+      localStorage.removeItem('spotify_token')
+      setToken(null)
+      setUser(null)
+      setProfile(null)
+      setGraphData(null)
+      setFriends([])
+      setFriendRequests({ incoming: [], outgoing: [] })
+    })
+  }, [])
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const t = params.get('token')
     if (t) {
