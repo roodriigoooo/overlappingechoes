@@ -108,16 +108,15 @@ export default function App() {
   if (!token) {
     return (
       <div className="landing">
+        <BackgroundGraph />
         <div className="landing-content">
-          <div className="landing-logo">
-            <LogoSvg />
-          </div>
-          <h1>Spotify Graph</h1>
-          <p>Discover how your music taste connects you with friends.</p>
+          <h1 className="landing-title">overlapping<br />echoes</h1>
+          <p className="landing-sub">map your music · find your people</p>
           <button className="btn-spotify" onClick={handleLogin} disabled={authLoading}>
             <SpotifyIcon />
             {authLoading ? 'Redirecting…' : 'Continue with Spotify'}
           </button>
+          <p className="landing-lyric">"I get by with a little help from my friends"</p>
         </div>
       </div>
     )
@@ -199,14 +198,81 @@ export default function App() {
   )
 }
 
-function LogoSvg() {
+// ─── Pixel circle geometry (mirrors Graph.tsx) ───────────────────────────────
+const BG_LARGE = [
+  { x: -6,  y: -14, w: 12, h: 4 },
+  { x: -10, y: -10, w: 20, h: 4 },
+  { x: -14, y: -6,  w: 28, h: 4 },
+  { x: -14, y: -2,  w: 28, h: 4 },
+  { x: -14, y:  2,  w: 28, h: 4 },
+  { x: -10, y:  6,  w: 20, h: 4 },
+  { x:  -6, y: 10,  w: 12, h: 4 },
+] as const
+
+const BG_SMALL = [
+  { x: -6,  y: -10, w: 12, h: 4 },
+  { x: -10, y: -6,  w: 20, h: 4 },
+  { x: -10, y: -2,  w: 20, h: 4 },
+  { x: -10, y:  2,  w: 20, h: 4 },
+  { x:  -6, y:  6,  w: 12, h: 4 },
+] as const
+
+const BG_NODES = [
+  { id: 0, x: 720, y: 390, big: true  },
+  { id: 1, x: 460, y: 195 },
+  { id: 2, x: 230, y: 370 },
+  { id: 3, x: 345, y: 625 },
+  { id: 4, x: 595, y: 755 },
+  { id: 5, x: 875, y: 675 },
+  { id: 6, x: 1065, y: 480 },
+  { id: 7, x: 965, y: 225 },
+  { id: 8, x: 755, y: 105 },
+  { id: 9, x: 130, y: 570 },
+  { id: 10, x: 1215, y: 340 },
+  { id: 11, x: 1310, y: 590 },
+]
+
+const BG_EDGES: [number, number, number][] = [
+  [0, 1, 0.82], [0, 7, 0.75], [0, 5, 0.60], [0, 4, 0.40],
+  [1, 8, 0.65], [1, 2, 0.48], [7, 8, 0.70], [7, 10, 0.55],
+  [5, 6, 0.72], [5, 4, 0.58], [3, 4, 0.80], [2, 3, 0.50],
+  [2, 9, 0.62], [6, 10, 0.60], [6, 11, 0.50], [0, 6, 0.44],
+]
+
+function BackgroundGraph() {
+  const nodeMap = new Map(BG_NODES.map(n => [n.id, n]))
   return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="4" r="2.5" fill="currentColor" />
-      <circle cx="4" cy="18" r="2.5" fill="currentColor" />
-      <circle cx="20" cy="18" r="2.5" fill="currentColor" />
-      <path d="M12 6.5L4.5 16M12 6.5L19.5 16M5.5 18H18.5"
-        stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <svg
+      className="landing-bg"
+      viewBox="0 0 1440 900"
+      preserveAspectRatio="xMidYMid slice"
+    >
+      {BG_EDGES.map(([a, b, sim]) => {
+        const na = nodeMap.get(a), nb = nodeMap.get(b)
+        if (!na || !nb) return null
+        const color = sim >= 0.7 ? '#00FF41' : sim >= 0.5 ? '#00CC33' : '#009922'
+        return (
+          <line key={`${a}-${b}`}
+            x1={na.x} y1={na.y} x2={nb.x} y2={nb.y}
+            stroke={color}
+            strokeWidth={0.8 + sim * 1.8}
+            strokeOpacity={0.25 + sim * 0.5}
+            strokeLinecap="square"
+          />
+        )
+      })}
+      {BG_NODES.map(n => {
+        const pixels = n.big ? BG_LARGE : BG_SMALL
+        const fill = n.big ? '#00FF41' : `rgba(0,255,65,${0.35 + (n.id % 5) * 0.12})`
+        return (
+          <g key={n.id} transform={`translate(${n.x},${n.y})`}>
+            {pixels.map((p, i) => (
+              <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h}
+                fill={fill} shapeRendering="crispEdges" />
+            ))}
+          </g>
+        )
+      })}
     </svg>
   )
 }
