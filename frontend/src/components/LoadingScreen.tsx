@@ -8,8 +8,83 @@ const quotes = [
     "And she's buying a stairway to heaven...",
     "Because maybe, you're gonna be the one that saves me...",
     "Here comes the sun...",
-    "All you need is love..."
+    "All you need is love...",
+    "Every breath you take, every move you make...",
+    "Don't stop believin', hold on to the feeling...",
 ]
+
+// Pixel art grids — 1 = filled, 0 = empty, 4px per cell
+const NOTE_GRID = [
+    [0,0,1,1,1,0],
+    [0,0,1,0,1,0],
+    [0,0,1,0,1,0],
+    [0,0,1,0,0,0],
+    [1,1,1,0,0,0],
+    [1,1,0,0,0,0],
+] as const
+
+const HEADPHONES_GRID = [
+    [0,1,1,1,1,0],
+    [1,0,0,0,0,1],
+    [1,1,0,0,1,1],
+    [1,1,0,0,1,1],
+    [1,1,0,0,1,1],
+] as const
+
+const PERSON_GRID = [
+    [0,1,1,0],
+    [0,1,1,0],
+    [1,1,1,1],
+    [1,1,1,1],
+    [1,0,0,1],
+    [1,0,0,1],
+] as const
+
+const WAVE_GRID = [
+    [0,1,0,0,0,1,0],
+    [1,0,1,0,1,0,1],
+    [0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,0],
+    [0,1,0,0,0,1,0],
+    [1,0,1,0,1,0,1],
+] as const
+
+type PixelGrid = readonly (readonly number[])[]
+
+const ICONS: { grid: PixelGrid; label: string }[] = [
+    { grid: NOTE_GRID,       label: 'note' },
+    { grid: HEADPHONES_GRID, label: 'phones' },
+    { grid: PERSON_GRID,     label: 'person' },
+    { grid: WAVE_GRID,       label: 'wave' },
+]
+
+function PixelArt({ grid, size = 4 }: { grid: PixelGrid; size?: number }) {
+    const cols = grid[0].length
+    const rows = grid.length
+    return (
+        <svg
+            width={cols * size}
+            height={rows * size}
+            shapeRendering="crispEdges"
+            style={{ display: 'block' }}
+        >
+            {grid.map((row, r) =>
+                row.map((cell, c) =>
+                    cell ? (
+                        <rect
+                            key={`${r}-${c}`}
+                            x={c * size}
+                            y={r * size}
+                            width={size}
+                            height={size}
+                            fill="rgba(255,255,255,0.88)"
+                        />
+                    ) : null
+                )
+            )}
+        </svg>
+    )
+}
 
 interface Props {
     text?: string
@@ -17,22 +92,39 @@ interface Props {
 
 export default function LoadingScreen({ text }: Props) {
     const [quoteIdx, setQuoteIdx] = useState(0)
-    const [visible, setVisible] = useState(true)
+    const [quoteVisible, setQuoteVisible] = useState(true)
+    const [iconIdx, setIconIdx] = useState(0)
+    const [iconVisible, setIconVisible] = useState(true)
 
     useEffect(() => {
         setQuoteIdx(Math.floor(Math.random() * quotes.length))
-        const int = setInterval(() => {
-            setVisible(false)
+
+        // Quote cycling — every 2.8s
+        const quoteInt = setInterval(() => {
+            setQuoteVisible(false)
             setTimeout(() => {
                 setQuoteIdx(prev => (prev + 1) % quotes.length)
-                setVisible(true)
-            }, 300)
-        }, 2500)
-        return () => clearInterval(int)
+                setQuoteVisible(true)
+            }, 350)
+        }, 2800)
+
+        // Icon cycling — every 1.4s (twice as fast)
+        const iconInt = setInterval(() => {
+            setIconVisible(false)
+            setTimeout(() => {
+                setIconIdx(prev => (prev + 1) % ICONS.length)
+                setIconVisible(true)
+            }, 250)
+        }, 1400)
+
+        return () => {
+            clearInterval(quoteInt)
+            clearInterval(iconInt)
+        }
     }, [])
 
     return (
-        <div className="loading-screen" style={{
+        <div style={{
             position: 'absolute',
             inset: 0,
             zIndex: 50,
@@ -41,26 +133,46 @@ export default function LoadingScreen({ text }: Props) {
             alignItems: 'center',
             justifyContent: 'center',
             background: 'var(--bg)',
-            color: 'var(--accent)',
-            fontFamily: 'Outfit, system-ui, sans-serif'
+            fontFamily: 'Outfit, system-ui, sans-serif',
+            gap: 0,
         }}>
+            {/* Pixel icon — cycles through note / headphones / person / wave */}
             <div style={{
-                width: 28, height: 28,
-                marginBottom: 24,
-                border: '3px solid var(--accent)',
-                animation: 'spin 0.8s infinite steps(8)' // retro segmented spinning
-            }} />
-            <h2 style={{ fontSize: 16, fontWeight: 600, letterSpacing: 2, marginBottom: 12, textTransform: 'uppercase' }}>
-                {text || 'LOADING_'}
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: iconVisible ? 1 : 0,
+                transition: 'opacity 0.25s ease',
+                marginBottom: 22,
+            }}>
+                <PixelArt grid={ICONS[iconIdx].grid} size={5} />
+            </div>
+
+            {/* Label */}
+            <h2 style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: 3,
+                marginBottom: 18,
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.35)',
+            }}>
+                {text || 'Loading'}
             </h2>
+
+            {/* Cycling music quote */}
             <p style={{
-                fontSize: 13,
-                color: 'var(--text-muted)',
+                fontSize: 17,
+                color: 'rgba(255,255,255,0.72)',
                 fontStyle: 'italic',
-                opacity: visible ? 1 : 0,
-                transition: 'opacity 0.3s ease',
+                fontWeight: 300,
+                opacity: quoteVisible ? 1 : 0,
+                transition: 'opacity 0.35s ease',
                 textAlign: 'center',
-                maxWidth: '80%'
+                maxWidth: '64%',
+                lineHeight: 1.55,
+                letterSpacing: 0.1,
             }}>
                 "{quotes[quoteIdx]}"
             </p>
