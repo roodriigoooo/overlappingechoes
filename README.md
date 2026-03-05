@@ -4,7 +4,7 @@ Originally a school project for implementing shared queues in Spotify, turned in
 
 You log in with Spotify, your friends log in with Spotify, and the app builds a force-directed graph where edge weights reflect how much your listening habits overlap. The closer two nodes, the more your tastes align. admittedly, some work needs to be put towards interpretability. 
 
-**[try it here](www.overlappingechoes.com)**
+**[try it here](https://overlappingechoes.app)**
 
 ![image](./overlappingechoes.png)
 

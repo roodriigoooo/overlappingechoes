@@ -27,6 +27,7 @@ Parameters:
     Type: String
     Description: Public URL of the frontend (used as post-login redirect)
     Default: https://overlappingechoes.app
+    # NOTE: this must match the actual hosted frontend URL, or Spotify OAuth will redirect to a dead link
 
 Globals:
   Function:
