@@ -6,4 +6,3 @@ dist/
 __pycache__/
 .aws-sam/
 samconfig.toml
-.swp
